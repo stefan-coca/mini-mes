@@ -65,7 +65,7 @@ Future:
 
 ### Hardware
 
-- Raspberry Pi 5
+- Raspberry Pi 4
 - ESP32-POE
 - Industrial PLCs
 - Ethernet Network
@@ -105,7 +105,7 @@ Future:
 miniMES/
 │
 ├── esp32/
-│   └── sketch_may25a.ino
+│   └── esp32-poe_mqtt.ino
 │
 ├── raspberry/
 │   ├── mini_mes_logger.py
