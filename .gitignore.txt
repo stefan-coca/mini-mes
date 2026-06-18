@@ -1,0 +1,19 @@
+__pycache__/
+*.pyc
+
+# Database
+*.db
+
+# Logs
+*.log
+
+# Runtime files
+last_export.txt
+mini_mes_status.txt
+
+# VS Code
+.vscode/
+
+# Virtual env
+venv/
+.venv/
