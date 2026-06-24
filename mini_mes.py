@@ -1,14 +1,15 @@
 import sqlite3
 import json
 import logging
-from datetime import datetime, time
+from datetime import datetime, time, timedelta
 import paho.mqtt.client as mqtt
+import time as tm
+import threading
 
 DB_FILE = "production.db"
-REPORT_FOLDER = "/mnt/rdrive/Share/miniMES"
-STATUS_FILE = f"{REPORT_FOLDER}/mini_mes_status.txt"
+REPORT_FOLDER = "/mnt/rdrive/Share/ProductionData"
 LOG_FILE = f"{REPORT_FOLDER}/mini_mes.log"
-EXPORT_STATUS_FILE = f"{REPORT_FOLDER}/last_export.txt"
+STATUS_FILE = f"{REPORT_FOLDER}/machine_status.txt"
 
 conn = sqlite3.connect(DB_FILE)
 cursor = conn.cursor()
@@ -32,6 +33,13 @@ logging.basicConfig(
 
 logging.info("Mini-MES started")
 
+fault_active = {}
+last_piece_time = {}
+machine_status = {}
+state_start_time = {}
+
+STOP_TIMEOUT = 270
+
 # ==================================================
 # SHIFT
 # ==================================================
@@ -50,61 +58,123 @@ def get_shift(dt):
         return 3
 
 # ==================================================
-# STATUS
+# MACHINE STATUS
 # ==================================================
 
-def update_status(machine, shift):
+def get_machine_status(machine):
 
-    cursor.execute(
-        "SELECT COUNT(*) FROM production"
+    if fault_active.get(machine, False):
+        return "FAULT"
+
+    last_piece = last_piece_time.get(machine)
+
+    if last_piece is None:
+        return "STOPPED"
+
+    delta = (
+        datetime.now() - last_piece
+    ).total_seconds()
+
+    if delta > STOP_TIMEOUT:
+        return "STOPPED"
+
+    return "RUNNING"
+
+# ==================================================
+# STATE TRACKING
+# ==================================================
+
+def save_state_transition(machine, new_state):
+
+    now = datetime.now()
+
+    old_state = machine_status.get(machine)
+
+    # prima stare observata
+    if old_state is None:
+
+        machine_status[machine] = new_state
+        state_start_time[machine] = now
+
+        logging.info(
+            f"{machine}: None -> {new_state}"
+        )
+
+        return
+
+    # nimic schimbat
+    if old_state == new_state:
+        return
+
+    start_time = state_start_time[machine]
+
+    duration = int(
+        (now - start_time).total_seconds()
     )
 
-    row_count = cursor.fetchone()[0]
+    # Corectie pentru STOP_TIMEOUT
+    if (
+        old_state == "RUNNING"
+        and new_state == "STOPPED"
+    ):
+        duration -= STOP_TIMEOUT
 
-    with open(STATUS_FILE, "w") as f:
-        last_export = "Unknown"
+    if duration < 0:
+        duration = 0
 
-        try:
+    db = sqlite3.connect(DB_FILE)
+    cur = db.cursor()
 
-            with open(
-                EXPORT_STATUS_FILE,
-                "r"
-            ) as ef:
+    cur.execute("""
+    INSERT INTO machine_state_events
+    (
+        machine,
+        state,
+        start_time,
+        end_time,
+        duration_sec
+    )
+    VALUES (?, ?, ?, ?, ?)
+    """, (
+        machine,
+        old_state,
+        start_time.strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
+        now.strftime(
+            "%Y-%m-%d %H:%M:%S"
+        ),
+        duration
+    ))
 
-                last_export = ef.read().strip()
+    db.commit()
+    db.close()
 
-        except:
+    logging.info(
+        f"State saved: "
+        f"{machine} "
+        f"{old_state} "
+        f"{duration}s"
+    )
 
-            pass
+    logging.info(
+        f"{machine}: "
+        f"{old_state} -> {new_state}"
+    )
 
-        f.write("Mini-MES Status\n")
-        f.write("====================\n\n")
+    machine_status[machine] = new_state
 
-        f.write(
-            f"Last piece: "
-            f"{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n"
+    update_status_file()
+
+    if (
+        old_state == "RUNNING"
+        and new_state == "STOPPED"
+    ):
+        state_start_time[machine] = (
+            now - timedelta(seconds=STOP_TIMEOUT)
         )
-
-        f.write(
-            f"Machine: {machine}\n"
-        )
-
-        f.write(
-            f"Shift: {shift}\n"
-        )
-
-        f.write(
-            f"Database rows: {row_count}\n"
-        )
-
-        f.write(
-            f"Last Excel export: "
-            f"{last_export}\n"
-        )
-
-        f.write(
-            "Logger running: YES\n"
-        )
+    else:
+        state_start_time[machine] = now
 
 # ==================================================
 # LOG PIECE DB
@@ -113,6 +183,15 @@ def update_status(machine, shift):
 def log_piece_db(machine):
 
     now = datetime.now()
+
+    last_piece_time[machine] = now
+
+    update_status_file()
+
+    save_state_transition(
+        machine,
+        "RUNNING"
+    )
 
     shift = get_shift(now)
 
@@ -133,12 +212,12 @@ def log_piece_db(machine):
 
         conn.commit()
 
-        update_status(machine, shift)
-
-        print("Saved to SQLite")
-
         logging.info(
             f"Piece saved: {machine}"
+        )
+
+        print(
+            f"Saved piece: {machine}"
         )
 
     except Exception as e:
@@ -150,6 +229,36 @@ def log_piece_db(machine):
         )
 
 # ==================================================
+# FAULT LOGGING
+# ==================================================
+
+def update_fault(machine, state):
+
+    fault_active[machine] = state
+
+    if state:
+
+        save_state_transition(
+            machine,
+            "FAULT"
+        )
+
+    else:
+
+        save_state_transition(
+            machine,
+            get_machine_status(machine)
+        )
+
+    logging.info(
+        f"Fault {machine}: {state}"
+    )
+
+    print(
+        f"FAULT {machine}: {state}"
+    )
+
+# ==================================================
 # MQTT
 # ==================================================
 
@@ -157,7 +266,9 @@ def on_connect(client, userdata, flags, rc, properties=None):
 
     print("MQTT Connected")
 
-    logging.info("MQTT Connected")
+    logging.info(
+        "MQTT Connected"
+    )
 
     client.subscribe(
         "factory/+/status"
@@ -191,9 +302,115 @@ def on_message(client, userdata, msg):
 
             log_piece_db(machine)
 
+        elif event == "fault":
+
+            state = payload.get(
+                "state",
+                0
+            )
+
+            update_fault(
+                machine,
+                state == 1
+            )
+
     except Exception as e:
 
         print("Error:", e)
+
+        logging.error(
+            f"Message error: {e}"
+        )
+
+# ==================================================
+# STATUS MONITOR
+# ==================================================
+
+def status_monitor():
+
+    while True:
+
+        try:
+
+            for machine in list(
+                machine_status.keys()
+            ):
+
+                current_state = (
+                    get_machine_status(
+                        machine
+                    )
+                )
+
+                save_state_transition(
+                    machine,
+                    current_state
+                )
+
+        except Exception as e:
+
+            logging.error(
+                f"Status monitor error: {e}"
+            )
+
+        tm.sleep(30)
+
+# ==================================================
+# STATUS FILE
+# ==================================================
+
+def update_status_file():
+
+    lines = []
+
+    lines.append("Machine Status")
+    lines.append("================")
+    lines.append("")
+
+    machines = sorted(
+        set(
+            list(machine_status.keys())
+            + list(last_piece_time.keys())
+        )
+    )
+
+    for machine in machines:
+
+        status = get_machine_status(
+            machine
+        )
+
+        last_piece = (
+            last_piece_time.get(machine)
+        )
+
+        if last_piece:
+
+            last_piece_str = (
+                last_piece.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                )
+            )
+
+        else:
+
+            last_piece_str = "N/A"
+
+        lines.append(
+            f"{machine:<10}"
+            f"{status:<10}"
+            f"Last piece: "
+            f"{last_piece_str}"
+        )
+
+    with open(
+        STATUS_FILE,
+        "w"
+    ) as f:
+
+        f.write(
+            "\n".join(lines)
+        )
 
 # ==================================================
 # START
@@ -212,4 +429,10 @@ client.connect(
     60
 )
 
+threading.Thread(
+    target=status_monitor,
+    daemon=True
+).start()
+
 client.loop_forever()
+
