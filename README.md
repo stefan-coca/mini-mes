@@ -261,8 +261,8 @@ CREATE TABLE production (
 
 ### Phase 2 - Production Monitoring
 
-- [ ] Machine status tracking
-- [ ] Downtime detection
+- [x] Machine status tracking
+- [x] Downtime detection
 - [ ] Shift tracking
 
 ### Phase 3 - Analytics
