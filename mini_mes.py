@@ -163,7 +163,6 @@ def on_connect(client, userdata, flags, rc, properties=None):
         "factory/+/status"
     )
 
-
 def on_message(client, userdata, msg):
 
     try:
@@ -195,7 +194,6 @@ def on_message(client, userdata, msg):
     except Exception as e:
 
         print("Error:", e)
-
 
 # ==================================================
 # START
