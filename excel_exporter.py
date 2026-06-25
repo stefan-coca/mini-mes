@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime, timedelta, time
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment
 
@@ -19,89 +20,121 @@ ORDER BY machine
 
 machines = [row[0] for row in cursor.fetchall()]
 
+# ==================================================
+# SHIFT DEFINITIONS
+# ==================================================
+
+SHIFT_1_START = time(6, 0)
+SHIFT_1_END = time(14, 0)
+
+SHIFT_2_START = time(14, 0)
+SHIFT_2_END = time(22, 0)
+
+
+def get_shift_from_datetime(dt):
+
+    t = dt.time()
+
+    if SHIFT_1_START <= t < SHIFT_1_END:
+        return 1
+
+    if SHIFT_2_START <= t < SHIFT_2_END:
+        return 2
+
+    return None
+
+
+# ==================================================
+# SPLIT EVENT INTO SHIFTS
+# ==================================================
+
+def split_event_into_shifts(start, end):
+
+    result = []
+
+    current_day = start.date()
+
+    while current_day <= end.date():
+
+        shift1_start = datetime.combine(
+            current_day,
+            SHIFT_1_START
+        )
+
+        shift1_end = datetime.combine(
+            current_day,
+            SHIFT_1_END
+        )
+
+        shift2_start = datetime.combine(
+            current_day,
+            SHIFT_2_START
+        )
+
+        shift2_end = datetime.combine(
+            current_day,
+            SHIFT_2_END
+        )
+
+        # ----------------------------
+        # SHIFT 1
+        # ----------------------------
+
+        s = max(start, shift1_start)
+        e = min(end, shift1_end)
+
+        if s < e:
+
+            result.append(
+                (
+                    current_day.isoformat(),
+                    1,
+                    int(
+                        (e - s).total_seconds()
+                    )
+                )
+            )
+
+        # ----------------------------
+        # SHIFT 2
+        # ----------------------------
+
+        s = max(start, shift2_start)
+        e = min(end, shift2_end)
+
+        if s < e:
+
+            result.append(
+                (
+                    current_day.isoformat(),
+                    2,
+                    int(
+                        (e - s).total_seconds()
+                    )
+                )
+            )
+
+        current_day += timedelta(days=1)
+
+    return result
+
 wb = Workbook()
 
-# =====================================
-# SUMMARY
-# =====================================
-
-ws_summary = wb.active
-ws_summary.title = "Summary"
-
-headers = ["Date", "Shift"] + machines
-
-ws_summary.append(headers)
-
-for cell in ws_summary[1]:
-    cell.font = Font(bold=True)
-    cell.alignment = Alignment(horizontal="center")
-
-ws_summary.freeze_panes = "A2"
-ws_summary.auto_filter.ref = ws_summary.dimensions
-
-ws_summary.column_dimensions["A"].width = 15
-ws_summary.column_dimensions["B"].width = 10
-
-for col in range(3, len(headers) + 1):
-    ws_summary.column_dimensions[
-        chr(64 + col)
-    ].width = 18
-
-# =====================================
-# SUMMARY DATA
-# =====================================
-
-cursor.execute("""
-SELECT
-    DATE(timestamp),
-    shift,
-    machine,
-    COUNT(*)
-FROM production
-GROUP BY
-    DATE(timestamp),
-    shift,
-    machine
-ORDER BY
-    DATE(timestamp),
-    shift,
-    machine
-""")
-
-summary_data = cursor.fetchall()
-
-summary_rows = {}
-
-for date, shift, machine, pieces in summary_data:
-
-    key = (date, shift)
-
-    if key not in summary_rows:
-        summary_rows[key] = {}
-
-    summary_rows[key][machine] = pieces
-
-for (date, shift), values in sorted(summary_rows.items()):
-
-    row = [date, shift]
-
-    for machine in machines:
-        row.append(values.get(machine, 0))
-
-    ws_summary.append(row)
+# Primul sheet va fi Machine Status
+ws_status = wb.active
+ws_status.title = "Machine Status"
 
 # =====================================
 # MACHINE STATUS
 # =====================================
 
-ws_status = wb.create_sheet("Machine Status")
-
 ws_status.append([
     "Date",
+    "Shift",
     "Machine",
     "Pieces",
     "Running (min)",
-    "Fault min)",
+    "Fault (min)",
     "Stopped (min)",
     "Utilization (%)",
     "Pieces/Hour"
@@ -112,108 +145,118 @@ for cell in ws_status[1]:
     cell.alignment = Alignment(horizontal="center")
 
 ws_status.freeze_panes = "A2"
-ws_status.auto_filter.ref = "A1:H1"
+ws_status.auto_filter.ref = "A1:I1"
 
-ws_status.column_dimensions["A"].width = 15
-ws_status.column_dimensions["B"].width = 15
-ws_status.column_dimensions["C"].width = 18
-ws_status.column_dimensions["D"].width = 18
-ws_status.column_dimensions["E"].width = 18
-ws_status.column_dimensions["F"].width = 18
-ws_status.column_dimensions["G"].width = 18
-ws_status.column_dimensions["H"].width = 18
+for col in "ABCDEFGHI":
+    ws_status.column_dimensions[col].width = 18
 
-cursor.execute("""
-SELECT
-    DATE(start_time),
-    machine,
-    state,
-    SUM(duration_sec)
-FROM machine_state_events
-GROUP BY
-    DATE(start_time),
-    machine,
-    state
-ORDER BY
-    DATE(start_time),
-    machine
-""")
 
-status_data = cursor.fetchall()
-
-status_rows = {}
-
-for date, machine, state, duration in status_data:
-
-    key = (date, machine)
-
-    if key not in status_rows:
-
-        status_rows[key] = {
-            "RUNNING": 0,
-            "FAULT": 0,
-            "STOPPED": 0
-        }
-
-    status_rows[key][state] = duration
+# ==================================================
+# PIECES
+# ==================================================
 
 cursor.execute("""
 SELECT
     DATE(timestamp),
+    shift,
     machine,
     COUNT(*)
 FROM production
 GROUP BY
     DATE(timestamp),
+    shift,
     machine
 """)
 
-piece_data = cursor.fetchall()
-
 piece_counts = {}
 
-for date, machine, pieces in piece_data:
+for date, shift, machine, pieces in cursor.fetchall():
 
     piece_counts[
-        (date, machine)
+        (date, shift, machine)
     ] = pieces
 
-for (date, machine), values in sorted(status_rows.items()):
+
+# ==================================================
+# STATES
+# ==================================================
+
+cursor.execute("""
+SELECT
+    machine,
+    state,
+    start_time,
+    end_time
+FROM machine_state_events
+ORDER BY start_time
+""")
+
+status_rows = {}
+
+for machine, state, start_str, end_str in cursor.fetchall():
+
+    start = datetime.strptime(
+        start_str,
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+    end = datetime.strptime(
+        end_str,
+        "%Y-%m-%d %H:%M:%S"
+    )
+
+    parts = split_event_into_shifts(
+        start,
+        end
+    )
+
+    for date, shift, duration in parts:
+
+        key = (
+            date,
+            shift,
+            machine
+        )
+
+        if key not in status_rows:
+
+            status_rows[key] = {
+                "RUNNING": 0,
+                "FAULT": 0,
+                "STOPPED": 0
+            }
+
+        status_rows[key][state] += duration
+
+
+# ==================================================
+# WRITE REPORT
+# ==================================================
+
+for key in sorted(status_rows):
+
+    date, shift, machine = key
+
+    values = status_rows[key]
 
     running = values["RUNNING"] / 60
     fault = values["FAULT"] / 60
     stopped = values["STOPPED"] / 60
 
     pieces = piece_counts.get(
-        (date, machine),
+        key,
         0
     )
 
-    # Availability = disponibilitate tehnica
-    if (running + fault) > 0:
-
-        availability = (
-            running /
-            (running + fault)
-        ) * 100
-
-    else:
-
-        availability = 0
-
-    # Utilization = utilizare reala
-    # Utilization raportata la timpul planificat
-    PLANNED_TIME_MIN = 960  # 06:00 - 22:00
-
     utilization = (
-        running /
-        PLANNED_TIME_MIN
+        running / 480
     ) * 100
 
-    # Piese / ora
     if running > 0:
 
-        pieces_per_hour = ( pieces / (running / 60)
+        pieces_per_hour = (
+            pieces /
+            (running / 60)
         )
 
     else:
@@ -222,6 +265,7 @@ for (date, machine), values in sorted(status_rows.items()):
 
     ws_status.append([
         date,
+        shift,
         machine,
         pieces,
         round(running, 1),
