@@ -8,39 +8,33 @@ The system collects production events from ESP32 devices installed on production
 
 ## Components
 
+```text
 ESP32
-│
 ├── Detects produced parts
 ├── Detects machine faults
 └── Publishes MQTT events
-
-↓
-
+        │
+        ▼
 Mosquitto MQTT Broker
-
-↓
-
+        │
+        ▼
 mini_mes.py
-
 ├── Receives MQTT messages
 ├── Stores production events
 ├── Tracks machine state
-├── Generates machine_status.txt
-
-↓
-
+└── Generates machine_status.txt
+        │
+        ▼
 SQLite
-
 ├── production
 └── machine_state_events
-
-↓
-
+        │
+        ▼
 excel_exporter.py
-
-↓
-
+        │
+        ▼
 production_report.xlsx
+```
 
 ## Main Technologies
 
