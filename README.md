@@ -108,11 +108,21 @@ miniMES/
 │   └── esp32-poe_mqtt.ino
 │
 ├── raspberry/
-│   ├── mini_mes_logger.py
-│   └── mini-mes.service
+│   ├── mini_mes.py
+│   ├── excel_exporter.py
+│   ├── mini-mes.service
+│   │
+│   └── ai-agent/
+│       ├── chat.py
+│       ├── mes_agent.py
+│       ├── requirements.txt
+│       └── ...
 │
 ├── docs/
-│   └── architecture.md
+│   ├── architecture.md
+│   ├── mqtt-topics.md
+│   ├── database.md
+│   └── excel-report.md
 │
 ├── requirements.txt
 ├── README.md
@@ -263,7 +273,7 @@ CREATE TABLE production (
 
 - [x] Machine status tracking
 - [x] Downtime detection
-- [ ] Shift tracking
+- [x] Shift tracking
 
 ### Phase 3 - Analytics
 
