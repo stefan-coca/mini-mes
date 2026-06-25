@@ -2,7 +2,7 @@
 
 ## Topic
 
-factory/<machine>/status
+factory/+/status
 
 Example:
 

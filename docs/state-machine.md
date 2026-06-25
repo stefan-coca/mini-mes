@@ -1,13 +1,8 @@
-             piece
-STOPPED  ------------> RUNNING
-   ^                      |
-   |                      |
-   | timeout              | fault
-   |                      v
-   +------------------- FAULT
-                           |
-                           |
-                     fault reset
-                           |
-                           v
-                       RUNNING
+```mermaid
+stateDiagram-v2
+    [*] --> STOPPED
+
+    STOPPED --> RUNNING : piece
+    RUNNING --> FAULT : timeout / fault
+    FAULT --> RUNNING : fault reset
+```

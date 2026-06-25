@@ -38,23 +38,13 @@ Parts / Hour
 
 ## Utilization
 
-Utilization =
-
-(Running Time + Fault Time)
-
-/
-
-Available Shift Time
+Utilization = (Running Time + Fault Time) / Available Shift Time
 
 ---
 
 ## Parts / Hour
 
-Parts Produced
-
-/
-
-Running Hours
+Parts Produced / Running Hours
 
 ---
 
