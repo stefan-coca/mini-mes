@@ -102,7 +102,7 @@ Future:
 ## Repository Structure
 
 ```text
-miniMES/
+mini-mes/
 │
 ├── esp32/
 │   └── esp32-poe_mqtt.ino
@@ -111,6 +111,7 @@ miniMES/
 │   ├── mini_mes.py
 │   ├── excel_exporter.py
 │   ├── mini-mes.service
+│   ├── production.db
 │   │
 │   └── ai-agent/
 │       ├── chat.py
@@ -122,6 +123,7 @@ miniMES/
 │   ├── architecture.md
 │   ├── mqtt-topics.md
 │   ├── database.md
+│   ├── state-machine.md
 │   └── excel-report.md
 │
 ├── requirements.txt
