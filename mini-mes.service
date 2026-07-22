@@ -1,15 +1,17 @@
 [Unit]
 Description=Mini MES MQTT Logger
+ 
 After=network-online.target mosquitto.service
+Requires=mosquitto.service
 Wants=network-online.target
-
+ 
 [Service]
 Type=simple
 User=admin
 WorkingDirectory=/home/admin/mini-mes
 ExecStart=/usr/bin/python3 /home/admin/mini-mes/mini_mes.py
 Restart=always
-RestartSec=5
-
+RestartSec=10
+ 
 [Install]
 WantedBy=multi-user.target

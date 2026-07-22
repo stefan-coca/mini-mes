@@ -1,3 +1,5 @@
+import os
+import time
 import sqlite3
 import json
 import logging
@@ -5,11 +7,16 @@ from datetime import datetime, time, timedelta
 import paho.mqtt.client as mqtt
 import time as tm
 import threading
+import shutil
+from logging.handlers import RotatingFileHandler
 
 DB_FILE = "production.db"
-REPORT_FOLDER = "/mnt/rdrive/Share/ProductionData"
-LOG_FILE = f"{REPORT_FOLDER}/mini_mes.log"
-STATUS_FILE = f"{REPORT_FOLDER}/machine_status.txt"
+LOCAL_FOLDER = "/home/admin/mini-mes/logs/"
+LOG_FILE = f"{LOCAL_FOLDER}/mini_mes.log"
+STATUS_FILE = f"{LOCAL_FOLDER}/machine_status.txt"
+REMOTE_FOLDER = "/mnt/rdrive/Share/ProductionData"
+REMOTE_LOG = f"{REMOTE_FOLDER}/mini_mes.log"
+REMOTE_STATUS = f"{REMOTE_FOLDER}/machine_status.txt"
 
 conn = sqlite3.connect(DB_FILE)
 cursor = conn.cursor()
@@ -25,11 +32,23 @@ CREATE TABLE IF NOT EXISTS production (
 
 conn.commit()
 
-logging.basicConfig(
-    filename=LOG_FILE,
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)s %(message)s"
+logger = logging.getLogger()
+
+logger.setLevel(logging.INFO)
+
+handler = RotatingFileHandler(
+    LOG_FILE,
+    maxBytes=1024 * 1024,
+    backupCount=5
 )
+
+formatter = logging.Formatter(
+    "%(asctime)s %(levelname)s %(message)s"
+)
+
+handler.setFormatter(formatter)
+
+logger.addHandler(handler)
 
 logging.info("Mini-MES started")
 
@@ -407,9 +426,41 @@ def update_status_file():
         STATUS_FILE,
         "w"
     ) as f:
-
         f.write(
             "\n".join(lines)
+        )
+
+    sync_files()
+
+# ==================================================
+# STATUS SYNC
+# ==================================================
+
+def sync_files():
+
+    if not os.path.exists(REMOTE_FOLDER):
+        return
+
+    try:
+
+        for file in os.listdir(LOCAL_FOLDER):
+
+            if file.startswith("mini_mes.log"):
+
+                shutil.copy2(
+                    os.path.join(LOCAL_FOLDER, file),
+                    os.path.join(REMOTE_FOLDER, file)
+                )
+
+        shutil.copy2(
+            STATUS_FILE,
+            REMOTE_STATUS
+        )
+
+    except Exception as e:
+
+        logging.warning(
+            f"Sync failed: {e}"
         )
 
 # ==================================================
