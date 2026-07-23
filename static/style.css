@@ -1,0 +1,38 @@
+body{
+    background:#1b1b1b
+}
+
+.machine-card{
+    transition:0.3s;
+    color:white;
+    border-radius:12px;
+    margin-bottom:20px;
+}
+
+.running{
+    background:#198754;
+}
+
+.stopped{
+    background:#6c757d;
+}
+
+.fault{
+    background:#dc3545;
+}
+
+.machine-state{
+    font-size:20px;
+}
+
+.machine-pieces{
+    font-size:40px;
+    font-weight:bold;
+}
+
+#datetime{
+    color:#d0d0d0;
+    font-size:22px;
+    font-weight:500;
+    letter-spacing:1px;
+}

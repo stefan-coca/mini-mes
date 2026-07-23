@@ -1,60 +1,60 @@
 # Database
 
-mini-MES stores all information in SQLite.
+Mini-MES stores all production data in a SQLite database.
 
 Database:
 
+```
 production.db
+```
 
 ---
 
 ## production
 
-Stores every produced part.
+Stores one record for every produced part.
 
 Columns
 
-id
+| Column | Description |
+|---------|-------------|
+| id | Primary key |
+| timestamp | Production timestamp |
+| machine | Machine identifier |
+| shift | Production shift |
 
-timestamp
+---
 
-machine
+## machine_status
 
-shift
+Stores only the latest machine state.
 
-Example
+| Column | Description |
+|---------|-------------|
+| machine | Primary key |
+| state | Current machine state |
+| last_update | Last state change |
 
-2026-06-25 08:13:22
-A2
-Shift 1
+Possible states
+
+- RUNNING
+- STOPPED
+- FAULT
 
 ---
 
 ## machine_state_events
 
-Stores machine state history.
+Stores complete machine history.
 
-Columns
-
-id
-
-machine
-
-state
-
-start_time
-
-end_time
-
-duration_sec
-
-Possible states
-
-RUNNING
-
-FAULT
-
-STOPPED
+| Column | Description |
+|---------|-------------|
+| id | Primary key |
+| machine | Machine identifier |
+| state | Machine state |
+| start_time | State start |
+| end_time | State end |
+| duration_sec | Duration |
 
 ---
 
@@ -64,8 +64,12 @@ One machine
 
 ↓
 
-Many production records
+Many production events
 
 ↓
 
-Many state records
+Many state history events
+
++
+
+One current status

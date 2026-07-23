@@ -1,27 +1,27 @@
 # MQTT Topics
 
-## Topic
+## Machine Status
 
-factory/+/status
+```
+factory/<machine>/status
+```
 
-Example:
+Example
 
+```
 factory/A2/status
+```
 
 ---
 
-## Piece Event
+## Production Event
 
 ```json
 {
-    "machine": "A2",
-    "event": "piece"
+    "machine":"A2",
+    "event":"piece"
 }
 ```
-
-Meaning:
-
-A new part has been produced.
 
 ---
 
@@ -29,15 +29,11 @@ A new part has been produced.
 
 ```json
 {
-    "machine": "A2",
-    "event": "fault",
-    "state": 1
+    "machine":"A2",
+    "event":"fault",
+    "state":1
 }
 ```
-
-Meaning:
-
-Machine entered FAULT state.
 
 ---
 
@@ -45,28 +41,36 @@ Machine entered FAULT state.
 
 ```json
 {
-    "machine": "A2",
-    "event": "fault",
-    "state": 0
+    "machine":"A2",
+    "event":"fault",
+    "state":0
 }
 ```
-
-Meaning:
-
-Machine fault cleared.
 
 ---
 
 ## State Priority
 
+```
 FAULT
-
-↓
-
+   ↓
 RUNNING
-
-↓
-
+   ↓
 STOPPED
+```
 
-STOPPED is detected automatically if no part is produced for more than STOP_TIMEOUT seconds.
+STOPPED is generated automatically after a configurable timeout without production.
+
+---
+
+## Future Topics
+
+```
+factory/<machine>/alarm
+
+factory/<machine>/cycle
+
+factory/<machine>/recipe
+
+factory/<machine>/heartbeat
+```

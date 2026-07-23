@@ -48,15 +48,25 @@ The system focuses on:
 | Production  |
 | Database    |
 +-------------+
+       |
+       v
++-------------------+
+| Flask Web Server  |
++-------------------+
+       |
+       v
++-------------------+
+| Live Dashboard    |
++-------------------+
 
 Future:
        |
        v
-+-------------+
-| Dashboard   |
-| Reports     |
-| OEE         |
-+-------------+
++-------------------+
+| Reports           |
+| OEE               |
+| AI Assistant      |
++-------------------+
 ```
 
 ---
@@ -78,6 +88,10 @@ Future:
 - SQLite
 - Systemd
 - Arduino Framework
+- Flask
+- Bootstrap 5
+- JavaScript
+- HTML/CSS
 
 ---
 
@@ -95,7 +109,32 @@ Future:
 - MQTT subscriber
 - Production event processing
 - SQLite data storage
+- Machine state tracking
+- Shift calculation
 - Automatic startup via systemd
+- Excel export
+- Flask REST API
+- Live web dashboard
+
+---
+
+## Web Dashboard
+
+The integrated dashboard provides real-time production monitoring.
+
+### Features
+
+- Automatic machine discovery
+- Live machine status
+  - RUNNING
+  - STOPPED
+  - FAULT
+- Shift 1 production
+- Shift 2 production
+- Total production counter
+- Live date and clock
+- Automatic refresh every 2 seconds
+- Responsive layout
 
 ---
 
@@ -105,30 +144,27 @@ Future:
 mini-mes/
 │
 ├── esp32/
-│   └── esp32-poe_mqtt.ino
 │
 ├── raspberry/
+│   ├── app.py
+│   ├── database.py
 │   ├── mini_mes.py
+│   ├── mqtt_client.py
 │   ├── excel_exporter.py
-│   ├── mini-mes.service
 │   ├── production.db
 │   │
+│   ├── templates/
+│   │   └── dashboard.html
+│   │
+│   ├── static/
+│   │   ├── dashboard.js
+│   │   └── style.css
+│   │
 │   └── ai-agent/
-│       ├── chat.py
-│       ├── mes_agent.py
-│       ├── requirements.txt
-│       └── ...
 │
 ├── docs/
-│   ├── architecture.md
-│   ├── mqtt-topics.md
-│   ├── database.md
-│   ├── state-machine.md
-│   └── excel-report.md
 │
-├── requirements.txt
-├── README.md
-└── .gitignore
+└── README.md
 ```
 
 ---
@@ -254,9 +290,15 @@ Example schema:
 ```sql
 CREATE TABLE production (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    machine_id TEXT NOT NULL,
-    count INTEGER NOT NULL,
-    timestamp TEXT NOT NULL
+    timestamp TEXT,
+    machine TEXT,
+    shift INTEGER
+);
+
+CREATE TABLE machine_status (
+    machine TEXT PRIMARY KEY,
+    state TEXT,
+    last_update TEXT
 );
 ```
 
@@ -277,25 +319,31 @@ CREATE TABLE production (
 - [x] Downtime detection
 - [x] Shift tracking
 
-### Phase 3 - Analytics
+### Phase 3 - Web Platform
+
+- [x] Flask web application
+- [x] Live dashboard
+- [x] Multi-machine support
+- [x] Shift production statistics
+- [x] Machine status monitoring
+
+### Phase 4 - Analytics
 
 - [ ] OEE calculation
-- [ ] Production KPIs
-- [ ] Historical trends
-
-### Phase 4 - Web Platform
-
-- [ ] Web dashboard
-- [ ] User authentication
-- [ ] Multi-user access
-- [ ] Report generation
+- [ ] Availability
+- [ ] Performance
+- [ ] Quality
+- [ ] Production trends
+- [ ] Downtime reports
 
 ### Phase 5 - Enterprise Integration
 
+- [ ] User authentication
+- [ ] REST API
 - [ ] PostgreSQL migration
 - [ ] ERP integration
-- [ ] REST API
 - [ ] Cloud synchronization
+- [ ] AI production assistant
 
 ---
 
