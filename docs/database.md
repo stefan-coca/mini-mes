@@ -70,6 +70,6 @@ Many production events
 
 Many state history events
 
-+
+↓
 
 One current status

@@ -115,6 +115,27 @@ def save_state_transition(machine, new_state):
         machine_status[machine] = new_state
         state_start_time[machine] = now
 
+        db = sqlite3.connect(DB_FILE)
+        cur = db.cursor()
+
+        cur.execute("""
+        INSERT INTO machine_status(machine, state, last_update)
+        VALUES (?, ?, ?)
+        ON CONFLICT(machine)
+        DO UPDATE SET
+            state = excluded.state,
+            last_update = excluded.last_update
+        """, (
+            machine,
+            new_state,
+            now.strftime("%Y-%m-%d %H:%M:%S")
+        ))
+
+        db.commit()
+        db.close()
+
+        update_status_file()
+
         logging.info(
             f"{machine}: None -> {new_state}"
         )
@@ -164,6 +185,19 @@ def save_state_transition(machine, new_state):
             "%Y-%m-%d %H:%M:%S"
         ),
         duration
+    ))
+
+    cur.execute("""
+    INSERT INTO machine_status(machine, state, last_update)
+    VALUES (?, ?, ?)
+    ON CONFLICT(machine)
+    DO UPDATE SET
+        state = excluded.state,
+        last_update = excluded.last_update
+    """, (
+        machine,
+        new_state,
+        now.strftime("%Y-%m-%d %H:%M:%S")
     ))
 
     db.commit()
